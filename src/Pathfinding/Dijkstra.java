@@ -2,6 +2,7 @@ package Pathfinding;
 
 import java.awt.*;
 import java.util.ArrayList;
+import java.util.PriorityQueue;
 
 /**
  * @author Ian Sodersjerna
@@ -10,23 +11,27 @@ import java.util.ArrayList;
 public class Dijkstra extends Algorithm {
     private final Node[][] nodeMap;
     private final ArrayList<Node> visited;
-    private final ArrayList<Node> unvisited;
+    private final PriorityQueue<Node> unvisited;
 
     Dijkstra(mapPanel panel) {
         super(panel);
         nodeMap = new Node[size.x][size.y];
         visited = new ArrayList<>();
-        unvisited = new ArrayList<>();
+        unvisited = new PriorityQueue<>();
         for (int i = 0; i < nodeMap.length; ++i) {
             for (int j = 0; j < nodeMap[0].length; ++j) {
                 nodeMap[i][j] = new Node(new Point(i, j), Integer.MAX_VALUE);
                 if (map[i][j] == 1) {
-                    nodeMap[i][j].wall =true;
-                } else {
+                    nodeMap[i][j].wall = true;
+                }
+                /*
+                else {
                     unvisited.add(nodeMap[i][j]);
                 }
+                 */
             }
         }
+        this.unvisited.add(nodeMap[start.x][start.y]);
         this.nodeMap[start.x][start.y].setStart();
         this.nodeMap[end.x][end.y].end = true;
     }
@@ -50,11 +55,12 @@ public class Dijkstra extends Algorithm {
         }
         this.panel.paintComponent(this.panel.getGraphics());
     }
-    public void paintPath(){
+
+    public void paintPath() {
         Node current = nodeMap[end.x][end.y];
-        while (current.parent!=null){
+        while (current.parent != null) {
             current = current.parent;
-            this.panel.setPosition(current.position.x,current.position.y,Color.blue);
+            this.panel.setPosition(current.position.x, current.position.y, Color.blue);
         }
         this.panel.setPosition(this.start, mapPanel.START_COLOR);
         this.panel.setPosition(this.end, mapPanel.END_COLOR);
@@ -62,70 +68,65 @@ public class Dijkstra extends Algorithm {
     }
 
     @Override
-    public void generatePath(boolean updateWhileRunning) throws IllegalArgumentException{
+    public void generatePath(boolean updateWhileRunning) throws IllegalArgumentException {
         Node current = null;
         while (!unvisited.isEmpty()) {
-            current = minDistance();
-            if(current.distance == Integer.MAX_VALUE){
+            current = unvisited.poll();
+            if (current.distance == Integer.MAX_VALUE) {
                 throw new IllegalArgumentException("course cannot be solved.");
             }
+            //neighbors
             for (int i = -1; i <= 1; i++) {
                 for (int j = -1; j <= 1; j++) {
                     // Insure the current node is not selected
                     if (i != 0 || j != 0) {
                         // If the neighbor is on the board
                         if ((current.position.x + i) >= 0 && (current.position.y + j) >= 0 && (current.position.x + i) < this.size.x && (current.position.y + j) < this.size.y) {
-                            // If the neighbor is inaccessible due to neighboring walls
-                            if ((i != 0 && j != 0) && (this.nodeMap[current.position.x + i][current.position.y].wall && this.nodeMap[current.position.x][current.position.y + j].wall)) {
+                            // If the neighbor is wall or inaccessible due to neighboring walls
+                            if (current.wall || ((i != 0 && j != 0) && (this.nodeMap[current.position.x + i][current.position.y].wall && this.nodeMap[current.position.x][current.position.y + j].wall))) {
                                 continue;
                             }
-                            //check the unvisited set
-                            for (Node node : unvisited) {
-                                if (node.position.equals(new Point(current.position.x + i, current.position.y + j))) {
-                                    if (node.distance > current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j))) {
-                                        node.distance = current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j));
-                                        node.parent = current;
-                                    }
-                                }
+                            if (nodeMap[current.position.x + i][current.position.y + j].distance > current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j))) {
+                                nodeMap[current.position.x + i][current.position.y + j].distance = current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j));
+                                nodeMap[current.position.x + i][current.position.y + j].parent = current;
+                                unvisited.remove(nodeMap[current.position.x + i][current.position.y + j]);
+                                unvisited.add(nodeMap[current.position.x + i][current.position.y + j]);
                             }
                         }
                     }
                 }
             }
             visited.add(current);
-            unvisited.remove(current);
-            if(current.end){
+            if (current.end) {
                 break;
             }
-            if(updateWhileRunning){
+            if (updateWhileRunning) {
                 paint();
             }
+        }
+        if(current == null || !current.end){
+            throw new IllegalArgumentException("course cannot be solved.");
         }
         paintPath();
     }
 
-    Node minDistance() {
-        Node temp = new Node(new Point(), Integer.MAX_VALUE);
-        for (Node node : unvisited) {
-            if (node.distance <= temp.distance) {
-                temp = node;
-            }
-        }
-        return temp;
-    }
-
-    class Node {
+    static class Node implements Comparable<Node> {
         private final Point position;
         private Node parent = null;
-        private int distance;
+        private Integer distance;
         private boolean start = false, end = false, wall = false;
+
+        @Override
+        public int compareTo(Node node) {
+            return this.distance.compareTo(node.distance);
+        }
 
         Node(Point position, int dist) {
             this.position = position;
             this.distance = dist;
         }
 
-        void setStart(){
+        void setStart() {
             distance = 0;
             start = true;
         }

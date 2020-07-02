@@ -124,7 +124,6 @@ public class AStar extends Algorithm {
                 }
             }
         }
-        this.panel.paintComponent(this.panel.getGraphics());
     }
 
     /**

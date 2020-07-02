@@ -2,6 +2,9 @@ package Pathfinding;
 
 import java.awt.*;
 import java.awt.event.*;
+import java.io.*;
+import java.util.Arrays;
+import java.util.Scanner;
 import javax.swing.*;
 
 /**
@@ -14,6 +17,7 @@ public class GUI extends JFrame {
     private Algorithm activeAlgorithm;
     public static Color currentColor = mapPanel.WALL_COLOR;
     public static boolean updateWhileRunning = true;
+    public Thread panelTread;
 
     /**
      * @param mapSize
@@ -97,9 +101,13 @@ public class GUI extends JFrame {
         aStarActivate.addActionListener(e -> {
             panel.clearPaths();
             try {
+                panelTread = new Thread(panel, "AStar");
+                panelTread.start();
                 activeAlgorithm = new AStar(panel);
                 activeAlgorithm.generatePath(updateWhileRunning);
+                panelTread.interrupt();
             } catch (IllegalArgumentException | NullPointerException exception) {
+                panelTread.interrupt();
                 JOptionPane.showMessageDialog(this, "Course cannot be solved.");
             }
         });
@@ -110,15 +118,56 @@ public class GUI extends JFrame {
         dijkstraActivate.addActionListener(e -> {
             panel.clearPaths();
             try {
+                panelTread = new Thread(panel, "Dijkstra's");
+                panelTread.start();
                 activeAlgorithm = new Dijkstra(panel);
                 activeAlgorithm.generatePath(updateWhileRunning);
+                panelTread.interrupt();
             } catch (IllegalArgumentException | NullPointerException exception) {
+                panelTread.interrupt();
                 JOptionPane.showMessageDialog(this, "Course cannot be solved.");
             }
         });
         algorithmsMenu.add(dijkstraActivate);
         menuBar.add(algorithmsMenu);
 
+        JMenu mapMenu = new JMenu("Map");
+
+        JMenuItem saveMapItem = new JMenuItem("Save Map");
+        saveMapItem.addActionListener(e -> {
+            try {
+                String fileName = JOptionPane.showInputDialog(this, "Filename:");
+                File file = new File(fileName);
+                if(file.exists()){
+                    int overwrite = JOptionPane.showConfirmDialog(this, "File exists, Overwrite?");
+                    if(overwrite == 0){
+                        if(!file.delete()){
+                            JOptionPane.showMessageDialog(this,"File could not be overwritten!");
+                        }
+                    }else {
+                        JOptionPane.showMessageDialog(this,"File was not overwritten");
+                        return;
+                    }
+                }
+                panel.save(fileName);
+                JOptionPane.showMessageDialog(this, "Save successful.");
+            } catch (IOException exception) {
+                JOptionPane.showMessageDialog(this,"There was a problem saving this file");
+            }
+        });
+        mapMenu.add(saveMapItem);
+
+        JMenuItem loadMapItem = new JMenuItem("Load Map");
+        loadMapItem.addActionListener(e -> {
+            try {
+                String fileName = JOptionPane.showInputDialog(this, "Filename:");
+                panel.load(fileName);
+            } catch (IOException exception) {
+                JOptionPane.showMessageDialog(this,"File does not exist");
+            }
+        });
+        mapMenu.add(loadMapItem);
+        menuBar.add(mapMenu);
 
         JMenu tileMenu = new JMenu("Tiles");
 
@@ -174,14 +223,15 @@ public class GUI extends JFrame {
      * @param args command line args
      */
     public static void main(String[] args) {
+        Point idealMapSize = new Point(128,72);
         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-        screenSize.setSize(screenSize.width / 20, screenSize.height / 20);
-        new GUI(new Point(screenSize.width, screenSize.height), 17);
+        screenSize.setSize(screenSize.width / idealMapSize.x, screenSize.height / idealMapSize.y);
+        new GUI(idealMapSize, (int) (screenSize.height * .8));
     }
 }
 
-class mapPanel extends JPanel implements MouseMotionListener, MouseListener {
-    private final Color[][] map;
+class mapPanel extends JPanel implements MouseMotionListener, MouseListener, Runnable {
+    private Color[][] map;
     private final int scale;
     public static final Color BORDER_COLOR = Color.black;
     public static final Color EMPTY_COLOR = Color.white;
@@ -202,6 +252,64 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener {
         for (int i = 0; i < map.length; i++) {
             for (int j = 0; j < map[0].length; j++) {
                 map[i][j] = EMPTY_COLOR;
+            }
+        }
+    }
+
+
+    public void save(String fileName) throws IOException {
+        if(fileName.contains(".map")){
+            fileName = "maps\\" + fileName;
+        }else {
+            fileName = "maps\\" + fileName + ".map";
+        }
+        BufferedWriter br = new BufferedWriter(new FileWriter(fileName));
+        br.write(map.length + "," + map[0].length + "\n");
+        int[][] intmap = getIntMap();
+        for (int i = 0; i < map.length; i++) {
+            for (int j = 0; j < map[0].length; j++) {
+                br.write(intmap[i][j] + ",");
+            }
+            br.write("\n");
+        }
+        br.close();
+    }
+
+    public void load(String fileName) throws IOException {
+        if(fileName.contains(".map")){
+            fileName = "maps\\" + fileName;
+        }else {
+            fileName = "maps\\" + fileName + ".map";
+        }
+        BufferedReader br = new BufferedReader(new FileReader(fileName));
+        int[] arr = Arrays.stream(br.readLine().split(",")).mapToInt(Integer::parseInt).toArray();
+        this.map = new Color[arr[0]][arr[1]];
+        for (int i = 0; i < map.length; i++) {
+            arr = Arrays.stream(br.readLine().split(",")).mapToInt(Integer::parseInt).toArray();
+            for (int j = 0; j < map[0].length; j++) {
+                if (arr[j] == 1) {
+                    map[i][j] = WALL_COLOR;
+                } else if (arr[j] == 2) {
+                    map[i][j] = START_COLOR;
+                } else if (arr[j] == 3) {
+                    map[i][j] = END_COLOR;
+                } else {
+                    map[i][j] = EMPTY_COLOR;
+                }
+            }
+        }
+        br.close();
+        paintComponent(getGraphics());
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            paintComponent(this.getGraphics());
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException e) {
+                break;
             }
         }
     }
@@ -266,14 +374,14 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener {
         int[][] temp = new int[map.length][map[0].length];
         for (int i = 0; i < temp.length; i++) {
             for (int j = 0; j < temp[0].length; j++) {
-                if (EMPTY_COLOR.equals(map[i][j])) {
-                    temp[i][j] = 0;
-                } else if (WALL_COLOR.equals(map[i][j])) {
+                if (WALL_COLOR.equals(map[i][j])) {
                     temp[i][j] = 1;
                 } else if (START_COLOR.equals(map[i][j])) {
                     temp[i][j] = 2;
                 } else if (END_COLOR.equals(map[i][j])) {
                     temp[i][j] = 3;
+                } else {
+                    temp[i][j] = 0;
                 }
             }
         }
@@ -419,5 +527,6 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener {
     @Override
     public void mouseExited(MouseEvent e) {
     }
+
 }
 
