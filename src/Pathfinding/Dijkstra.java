@@ -1,7 +1,6 @@
 package Pathfinding;
 
 import java.awt.*;
-import java.util.ArrayList;
 import java.util.PriorityQueue;
 
 /**
@@ -10,13 +9,22 @@ import java.util.PriorityQueue;
  */
 public class Dijkstra extends Algorithm {
     private final Node[][] nodeMap;
-    private final ArrayList<Node> visited;
+    //private final ArrayList<Node> visited;
     private final PriorityQueue<Node> unvisited;
+    private final Color visitedColor = Color.green;
+    private final Color unvisitedColor = Color.red;
 
-    Dijkstra(mapPanel panel) {
-        super(panel);
+
+    /**
+     * Constructor for algorithm
+     *
+     * @param panel
+     * @param updateWhileRunning
+     */
+    Dijkstra(mapPanel panel, boolean updateWhileRunning) {
+        super(panel, updateWhileRunning);
         nodeMap = new Node[size.x][size.y];
-        visited = new ArrayList<>();
+        //visited = new ArrayList<>();
         unvisited = new PriorityQueue<>();
         for (int i = 0; i < nodeMap.length; ++i) {
             for (int j = 0; j < nodeMap[0].length; ++j) {
@@ -24,36 +32,12 @@ public class Dijkstra extends Algorithm {
                 if (map[i][j] == 1) {
                     nodeMap[i][j].wall = true;
                 }
-                /*
-                else {
-                    unvisited.add(nodeMap[i][j]);
-                }
-                 */
             }
         }
         this.unvisited.add(nodeMap[start.x][start.y]);
+        this.panel.setPosition(nodeMap[start.x][start.y].position, visitedColor);
         this.nodeMap[start.x][start.y].setStart();
         this.nodeMap[end.x][end.y].end = true;
-    }
-
-    @Override
-    public void paint() {
-        for (int i = 0; i < this.size.x; i++) {
-            for (int j = 0; j < this.size.y; j++) {
-                if (nodeMap[i][j].wall) {
-                    this.panel.setPosition(i, j, mapPanel.WALL_COLOR);
-                } else if (nodeMap[i][j].start) {
-                    this.panel.setPosition(i, j, mapPanel.START_COLOR);
-                } else if (nodeMap[i][j].end) {
-                    this.panel.setPosition(i, j, mapPanel.END_COLOR);
-                } else if (this.unvisited.contains(nodeMap[i][j])) {
-                    this.panel.setPosition(i, j, Color.green);
-                } else if (this.visited.contains(nodeMap[i][j])) {
-                    this.panel.setPosition(i, j, Color.red);
-                }
-            }
-        }
-        this.panel.paintComponent(this.panel.getGraphics());
     }
 
     public void paintPath() {
@@ -68,7 +52,7 @@ public class Dijkstra extends Algorithm {
     }
 
     @Override
-    public void generatePath(boolean updateWhileRunning) throws IllegalArgumentException {
+    public void generatePath() throws IllegalArgumentException {
         Node current = null;
         while (!unvisited.isEmpty()) {
             current = unvisited.poll();
@@ -83,7 +67,7 @@ public class Dijkstra extends Algorithm {
                         // If the neighbor is on the board
                         if ((current.position.x + i) >= 0 && (current.position.y + j) >= 0 && (current.position.x + i) < this.size.x && (current.position.y + j) < this.size.y) {
                             // If the neighbor is wall or inaccessible due to neighboring walls
-                            if (current.wall || ((i != 0 && j != 0) && (this.nodeMap[current.position.x + i][current.position.y].wall && this.nodeMap[current.position.x][current.position.y + j].wall))) {
+                            if (this.nodeMap[current.position.x + i][current.position.y + j].wall || ((i != 0 && j != 0) && (this.nodeMap[current.position.x + i][current.position.y].wall && this.nodeMap[current.position.x][current.position.y + j].wall))) {
                                 continue;
                             }
                             if (nodeMap[current.position.x + i][current.position.y + j].distance > current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j))) {
@@ -91,24 +75,33 @@ public class Dijkstra extends Algorithm {
                                 nodeMap[current.position.x + i][current.position.y + j].parent = current;
                                 unvisited.remove(nodeMap[current.position.x + i][current.position.y + j]);
                                 unvisited.add(nodeMap[current.position.x + i][current.position.y + j]);
+                                this.panel.setPosition(current.position.x + i, current.position.y + j, unvisitedColor);
                             }
                         }
                     }
                 }
             }
-            visited.add(current);
+            this.panel.setPosition(current.position.x, current.position.y, visitedColor);
             if (current.end) {
                 break;
             }
-            if (updateWhileRunning) {
-                paint();
+            if (this.updateWhileRunning) {
+                try {
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    GUI.panelTread.interrupt();
+                    return;
+                }
             }
         }
-        if(current == null || !current.end){
+        if (current == null || !current.end) {
+            GUI.panelTread.interrupt();
             throw new IllegalArgumentException("course cannot be solved.");
         }
         paintPath();
+        GUI.panelTread.interrupt();
     }
+
 
     static class Node implements Comparable<Node> {
         private final Point position;
