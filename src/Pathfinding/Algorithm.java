@@ -28,6 +28,9 @@ public abstract class Algorithm implements Runnable {
         this.size = new Point(map.length, map[0].length); // get size of map
     }
 
+    /**
+     * Creates and runs panel thread and generates a path.
+     */
     @Override
     public void run() {
         panel.clearPaths();
@@ -46,12 +49,6 @@ public abstract class Algorithm implements Runnable {
      *
      */
     public abstract void generatePath() throws IllegalArgumentException;
-
-    /**
-     * Method to paint the panel with the colors defined in MapPanel.
-     */
-    //public abstract void paint();
-
 
     /**
      * Gets the distance between two nodes using special method to calculate distance.

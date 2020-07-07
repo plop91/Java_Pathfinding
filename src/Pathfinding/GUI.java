@@ -5,6 +5,10 @@ import java.awt.event.*;
 import java.io.*;
 import java.util.Arrays;
 import javax.swing.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+// Current development is focused on improving how the app runs, look and feel will be finalized when the project is otherwise technically sound.
 
 /**
  * @author Ian Sodersjerna
@@ -25,7 +29,7 @@ public class GUI extends JFrame {
         @Override
         public void actionPerformed(ActionEvent e) {
             panel.clearPaths();
-            new Thread(new AStar(panel,updateWhileRunning),"A-Star").start();
+            new Thread(new AStar(panel, updateWhileRunning), "A-Star").start();
         }
     };
 
@@ -37,7 +41,7 @@ public class GUI extends JFrame {
         @Override
         public void actionPerformed(ActionEvent e) {
             panel.clearPaths();
-            new Thread(new Dijkstra(panel,updateWhileRunning),"Dijkstra").start();
+            new Thread(new Dijkstra(panel, updateWhileRunning), "Dijkstra").start();
         }
     };
 
@@ -291,7 +295,6 @@ public class GUI extends JFrame {
         screenSize.setSize(screenSize.width / idealMapSize.x, screenSize.height / idealMapSize.y);
         new GUI(idealMapSize, (int) (screenSize.height * .8));
     }
-
 }
 
 class mapPanel extends JPanel implements MouseMotionListener, MouseListener, Runnable {
@@ -320,6 +323,22 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener, Run
         }
     }
 
+    public String validateFilename(String fileName) throws IOException{
+        fileName = fileName.trim().toLowerCase().replace(" ", "_");
+        if (fileName.endsWith(".map")) {
+            if (System.getProperty("os.name").toLowerCase().equals("win"))
+                fileName = "maps\\" + fileName;
+            else
+                fileName = "maps/" + fileName;
+        } else {
+            if (System.getProperty("os.name").toLowerCase().equals("win"))
+                fileName = "maps\\" + fileName + ".map";
+            else
+                fileName = "maps/" + fileName + ".map";
+        }
+        return fileName;
+    }
+
     /**
      * Function to save the current state of the MapPanel to the maps directory.
      *
@@ -327,11 +346,7 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener, Run
      * @throws IOException Thrown if file can not be written to.
      */
     public void save(String fileName) throws IOException {
-        if (fileName.contains(".map")) {
-            fileName = "maps\\" + fileName;
-        } else {
-            fileName = "maps\\" + fileName + ".map";
-        }
+        fileName = validateFilename(fileName);
         BufferedWriter br = new BufferedWriter(new FileWriter(fileName));
         br.write(map.length + "," + map[0].length + "\n");
         int[][] intmap = getIntMap();
@@ -351,11 +366,7 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener, Run
      * @throws IOException Thrown if file can not be read.
      */
     public void load(String fileName) throws IOException {
-        if (fileName.contains(".map")) {
-            fileName = "maps\\" + fileName;
-        } else {
-            fileName = "maps\\" + fileName + ".map";
-        }
+        fileName = validateFilename(fileName);
         BufferedReader br = new BufferedReader(new FileReader(fileName));
         int[] arr = Arrays.stream(br.readLine().split(",")).mapToInt(Integer::parseInt).toArray();
         this.map = new Color[arr[0]][arr[1]];
@@ -376,7 +387,7 @@ class mapPanel extends JPanel implements MouseMotionListener, MouseListener, Run
         br.close();
         paintComponent(getGraphics());
     }
-
+    
     /**
      * Method to allow MapPanel to be run as a thread, so it can update map for the running algorithm.
      */

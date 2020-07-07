@@ -9,7 +9,6 @@ import java.util.PriorityQueue;
  */
 public class Dijkstra extends Algorithm {
     private final Node[][] nodeMap;
-    //private final ArrayList<Node> visited;
     private final PriorityQueue<Node> unvisited;
     private final Color visitedColor = Color.green;
     private final Color unvisitedColor = Color.red;
@@ -24,7 +23,6 @@ public class Dijkstra extends Algorithm {
     Dijkstra(mapPanel panel, boolean updateWhileRunning) {
         super(panel, updateWhileRunning);
         nodeMap = new Node[size.x][size.y];
-        //visited = new ArrayList<>();
         unvisited = new PriorityQueue<>();
         for (int i = 0; i < nodeMap.length; ++i) {
             for (int j = 0; j < nodeMap[0].length; ++j) {
@@ -36,7 +34,7 @@ public class Dijkstra extends Algorithm {
         }
         this.unvisited.add(nodeMap[start.x][start.y]);
         this.panel.setPosition(nodeMap[start.x][start.y].position, visitedColor);
-        this.nodeMap[start.x][start.y].setStart();
+        this.nodeMap[start.x][start.y].distance = 0;
         this.nodeMap[end.x][end.y].end = true;
     }
 
@@ -54,6 +52,7 @@ public class Dijkstra extends Algorithm {
     @Override
     public void generatePath() throws IllegalArgumentException {
         Node current = null;
+        Node neighbor;
         while (!unvisited.isEmpty()) {
             current = unvisited.poll();
             if (current.distance == Integer.MAX_VALUE) {
@@ -70,12 +69,13 @@ public class Dijkstra extends Algorithm {
                             if (this.nodeMap[current.position.x + i][current.position.y + j].wall || ((i != 0 && j != 0) && (this.nodeMap[current.position.x + i][current.position.y].wall && this.nodeMap[current.position.x][current.position.y + j].wall))) {
                                 continue;
                             }
-                            if (nodeMap[current.position.x + i][current.position.y + j].distance > current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j))) {
-                                nodeMap[current.position.x + i][current.position.y + j].distance = current.distance + distanceBetween(current.position, new Point(current.position.x + i, current.position.y + j));
-                                nodeMap[current.position.x + i][current.position.y + j].parent = current;
-                                unvisited.remove(nodeMap[current.position.x + i][current.position.y + j]);
-                                unvisited.add(nodeMap[current.position.x + i][current.position.y + j]);
-                                this.panel.setPosition(current.position.x + i, current.position.y + j, unvisitedColor);
+                            neighbor = nodeMap[current.position.x +i][current.position.y +j];
+                            if (neighbor.distance > current.distance + distanceBetween(current.position, neighbor.position)) {
+                                neighbor.distance = current.distance + distanceBetween(current.position, neighbor.position);
+                                neighbor.parent = current;
+                                unvisited.remove(neighbor);
+                                unvisited.add(neighbor);
+                                this.panel.setPosition(neighbor.position, unvisitedColor);
                             }
                         }
                     }
@@ -107,7 +107,7 @@ public class Dijkstra extends Algorithm {
         private final Point position;
         private Node parent = null;
         private Integer distance;
-        private boolean start = false, end = false, wall = false;
+        private boolean end = false, wall = false;
 
         @Override
         public int compareTo(Node node) {
@@ -117,11 +117,6 @@ public class Dijkstra extends Algorithm {
         Node(Point position, int dist) {
             this.position = position;
             this.distance = dist;
-        }
-
-        void setStart() {
-            distance = 0;
-            start = true;
         }
     }
 }
